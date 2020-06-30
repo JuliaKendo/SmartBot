@@ -127,5 +127,5 @@ dmypy.json
 # Adding
 /.vscode
 .DS_Store
-google_credentials.json
+google-credentials.json
 training_phrases.txt
