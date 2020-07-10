@@ -2,8 +2,8 @@ import os
 import logging
 import requests
 import telegram
-import dialogflow_v2
 import random
+import dialog_tools
 from vk_api import VkApi, VkApiError, ApiHttpError, AuthError
 from vk_api.longpoll import VkLongPoll, VkEventType
 from dotenv import load_dotenv
@@ -15,7 +15,7 @@ logger = logging.getLogger('vkbot')
 class NotificationLogHandler(logging.Handler):
 
     def __init__(self, token, chat_id):
-        logging.Handler.__init__(self)
+        super().__init__()
         self.token = token
         self.chat_id = chat_id
 
@@ -28,10 +28,11 @@ class NotificationLogHandler(logging.Handler):
 
 class VkDialogBot(object):
 
-    def __init__(self, token, responce_handler):
+    def __init__(self, token, project_id, response_handler):
         self.vk_session = VkApi(token=token)
+        self.project_id = project_id
         self.vk_api = self.vk_session.get_api()
-        self.responce_handler = responce_handler
+        self.response_handler = response_handler
 
     def start(self):
         longpoll = VkLongPoll(self.vk_session)
@@ -40,7 +41,7 @@ class VkDialogBot(object):
                 self.send_message(event)
 
     def send_message(self, event):
-        answer = self.responce_handler(event.text, event.user_id)
+        answer = self.response_handler(self.project_id, event.text, vk_session_id=event.user_id)
         if answer:
             self.vk_api.messages.send(
                 user_id=event.user_id,
@@ -49,21 +50,8 @@ class VkDialogBot(object):
             )
 
 
-def get_answer(text, session_id):
-    project_id = os.getenv('DIALOGFLOW_PROJECT_ID')
-    session_client = dialogflow_v2.SessionsClient()
-    session = session_client.session_path(project_id, session_id)
-
-    text_input = dialogflow_v2.types.TextInput(text=text, language_code=LANGUAGE_CODE)
-    query_input = dialogflow_v2.types.QueryInput(text=text_input)
-
-    response = session_client.detect_intent(session=session, query_input=query_input)
-
-    return response.query_result.fulfillment_text if not response.query_result.intent.is_fallback else None
-
-
 def initialize_logger():
-    handler = NotificationLogHandler(os.environ.get('LOG_ACCESS_TOKEN'), os.environ.get('TELEGRAM_CHAT_ID'))
+    handler = NotificationLogHandler(os.getenv('TG_LOG_TOKEN'), os.getenv('TG_CHAT_ID'))
     formatter = logging.Formatter('%(message)s')
     handler.setFormatter(formatter)
     logger.addHandler(handler)
@@ -75,16 +63,18 @@ def main():
     initialize_logger()
     logger.info('vk bot launched')
     try:
-        vk_bot = VkDialogBot(os.getenv('VK_ACCESS_TOKEN'), get_answer)
+        vk_bot = VkDialogBot(
+            os.getenv('VK_ACCESS_TOKEN'),
+            os.getenv('DIALOGFLOW_PROJECT_ID'),
+            dialog_tools.get_answer
+        )
         vk_bot.start()
 
-    except (VkApiError, ApiHttpError, AuthError) as error:
-        logger.error(f'{error}', exc_info=True)
-
-    except requests.exceptions.HTTPError as error:
-        logger.error(f'{error}', exc_info=True)
-
-    except (KeyError, TypeError, ValueError) as error:
+    except (
+        requests.exceptions.HTTPError,
+        VkApiError, ApiHttpError, AuthError,
+        KeyError, TypeError, ValueError
+    ) as error:
         logger.error(f'{error}', exc_info=True)
 
 

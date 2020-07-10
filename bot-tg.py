@@ -2,7 +2,7 @@ import os
 import logging
 import requests
 import telegram
-import dialogflow_v2
+import dialog_tools
 from dotenv import load_dotenv
 from telegram.ext import Filters, MessageHandler, Updater
 
@@ -13,7 +13,7 @@ logger = logging.getLogger('telegrambot')
 class NotificationLogHandler(logging.Handler):
 
     def __init__(self, token, chat_id):
-        logging.Handler.__init__(self)
+        super().__init__()
         self.token = token
         self.chat_id = chat_id
 
@@ -24,10 +24,11 @@ class NotificationLogHandler(logging.Handler):
             bot.sendMessage(chat_id=self.chat_id, text=log_entry)
 
 
-class TelegramDialogBot(object):
+class TgDialogBot(object):
 
-    def __init__(self, token, responce_handler):
+    def __init__(self, token, project_id, responce_handler):
         self.updater = Updater(token=token)
+        self.project_id = project_id
         handler = MessageHandler(Filters.text | Filters.command, self.send_message)
         self.updater.dispatcher.add_handler(handler)
         self.responce_handler = responce_handler
@@ -36,26 +37,13 @@ class TelegramDialogBot(object):
         self.updater.start_polling()
 
     def send_message(self, bot, update):
-        answer = self.responce_handler(update.message.text, update.message.chat_id)
+        answer = self.responce_handler(self.project_id, update.message.text, tg_session_id=update.message.chat_id)
         if answer:
             update.message.reply_text(answer)
 
 
-def get_answer(text, session_id):
-    project_id = os.getenv('DIALOGFLOW_PROJECT_ID')
-    session_client = dialogflow_v2.SessionsClient()
-    session = session_client.session_path(project_id, session_id)
-
-    text_input = dialogflow_v2.types.TextInput(text=text, language_code=LANGUAGE_CODE)
-    query_input = dialogflow_v2.types.QueryInput(text=text_input)
-
-    response = session_client.detect_intent(session=session, query_input=query_input)
-
-    return response.query_result.fulfillment_text
-
-
 def initialize_logger():
-    handler = NotificationLogHandler(os.environ.get('LOG_ACCESS_TOKEN'), os.environ.get('TELEGRAM_CHAT_ID'))
+    handler = NotificationLogHandler(os.getenv('TG_LOG_TOKEN'), os.getenv('TG_CHAT_ID'))
     formatter = logging.Formatter('%(message)s')
     handler.setFormatter(formatter)
     logger.addHandler(handler)
@@ -67,16 +55,18 @@ def main():
     initialize_logger()
     logger.info('telegram bot launched')
     try:
-        bot = TelegramDialogBot(os.getenv('TELEGRAM_ACCESS_TOKEN'), get_answer)
+        bot = TgDialogBot(
+            os.getenv('TG_ACCESS_TOKEN'),
+            os.getenv('DIALOGFLOW_PROJECT_ID'),
+            dialog_tools.get_answer
+        )
         bot.start()
 
-    except telegram.TelegramError as error:
-        logger.error(f'{error}', exc_info=True)
-
-    except requests.exceptions.HTTPError as error:
-        logger.error(f'{error}', exc_info=True)
-
-    except (KeyError, TypeError, ValueError) as error:
+    except (
+        telegram.TelegramError,
+        requests.exceptions.HTTPError,
+        KeyError, TypeError, ValueError
+    ) as error:
         logger.error(f'{error}', exc_info=True)
 
 

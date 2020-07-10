@@ -36,20 +36,23 @@ def main():
     parser = argparse.ArgumentParser(description='Параметры запуска скрипта')
     parser.add_argument('-f', '--file', default='training_phrases.txt', help='Путь к файлу')
     args = parser.parse_args()
-    if not args.file:
-        return
     try:
         with open(args.file, 'r') as file_handler:
             training_phrases = json.load(file_handler)
 
-        intents = [get_intent(key, phrase) for key, phrase in training_phrases.items() if training_phrases]
+        intents = [get_intent(key, phrase) for key, phrase in training_phrases.items()]
         for intent in intents:
             load_intent(intent)
         train_agent()
     except exceptions.GoogleAPICallError as error:
         print(f'Не удалось обработать запрос по причине: {error}')
+
     except ValueError as error:
         print(f'Не удалось загрузить тестовые фразы по причине: {error}')
+
+    except FileNotFoundError:
+        print('Не найден файл с тренировочными фразами')
+
     else:
         print('Фразы успешно загружены из файла')
 
