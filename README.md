@@ -18,7 +18,7 @@ python.exe bot-vk.py
 ```	
 
 Перед запуском скрипта настройте следующие переменные окружения:
-- `DIALOGFLOW_PROJECT_ID` - идентификатор проекта на сайте [Google.com](https://cloud.google.com/dialogflow/docs/quick/setup).
+- `DIALOGFLOW_PROJECT_ID` - Идентификатор проекта на сайте [Google.com](https://cloud.google.com/dialogflow/docs/quick/setup).
 - `GOOGLE_APPLICATION_CREDENTIALS` - Путь до файла с ключами, который создается в соответствии с документацией [Google.com](https://cloud.google.com/docs/authentication/getting-started).
 - `TG_ACCESS_TOKEN` - Секретный токен бота [telegram](https://core.telegram.org/bots/api), который создается перед запуском скрипта.
 - `TG_CHAT_ID` - ID чата текущего пользователя телеграмм. Можно получить написав `@userinfobot`. 
