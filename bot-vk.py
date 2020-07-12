@@ -1,29 +1,14 @@
 import os
 import logging
 import requests
-import telegram
 import random
 import dialog_tools
+import logger_tools
 from vk_api import VkApi, VkApiError, ApiHttpError, AuthError
 from vk_api.longpoll import VkLongPoll, VkEventType
 from dotenv import load_dotenv
 
-LANGUAGE_CODE = 'ru-RU'
 logger = logging.getLogger('vkbot')
-
-
-class NotificationLogHandler(logging.Handler):
-
-    def __init__(self, token, chat_id):
-        super().__init__()
-        self.token = token
-        self.chat_id = chat_id
-
-    def emit(self, record):
-        log_entry = self.format(record)
-        if log_entry:
-            bot = telegram.Bot(token=self.token)
-            bot.sendMessage(chat_id=self.chat_id, text=log_entry)
 
 
 class VkDialogBot(object):
@@ -41,7 +26,7 @@ class VkDialogBot(object):
                 self.send_message(event)
 
     def send_message(self, event):
-        answer = self.response_handler(self.project_id, event.text, vk_session_id=event.user_id)
+        answer = self.response_handler(self.project_id, event.user_id, event.text, 'vk-')
         if answer:
             self.vk_api.messages.send(
                 user_id=event.user_id,
@@ -50,17 +35,13 @@ class VkDialogBot(object):
             )
 
 
-def initialize_logger():
-    handler = NotificationLogHandler(os.getenv('TG_LOG_TOKEN'), os.getenv('TG_CHAT_ID'))
-    formatter = logging.Formatter('%(message)s')
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
-    logger.setLevel(logging.DEBUG)
-
-
 def main():
     load_dotenv()
-    initialize_logger()
+    logger_tools.initialize_logger(
+        logger,
+        os.getenv('TG_LOG_TOKEN'),
+        os.getenv('TG_CHAT_ID')
+    )
     logger.info('vk bot launched')
     try:
         vk_bot = VkDialogBot(
@@ -75,7 +56,7 @@ def main():
         VkApiError, ApiHttpError, AuthError,
         KeyError, TypeError, ValueError
     ) as error:
-        logger.error(f'{error}', exc_info=True)
+        logger.exception(f'{error}')
 
 
 if __name__ == "__main__":

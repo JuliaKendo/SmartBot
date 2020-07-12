@@ -2,26 +2,12 @@ import os
 import logging
 import requests
 import telegram
+import logger_tools
 import dialog_tools
 from dotenv import load_dotenv
 from telegram.ext import Filters, MessageHandler, Updater
 
-LANGUAGE_CODE = 'ru-RU'
 logger = logging.getLogger('telegrambot')
-
-
-class NotificationLogHandler(logging.Handler):
-
-    def __init__(self, token, chat_id):
-        super().__init__()
-        self.token = token
-        self.chat_id = chat_id
-
-    def emit(self, record):
-        log_entry = self.format(record)
-        if log_entry:
-            bot = telegram.Bot(token=self.token)
-            bot.sendMessage(chat_id=self.chat_id, text=log_entry)
 
 
 class TgDialogBot(object):
@@ -37,22 +23,18 @@ class TgDialogBot(object):
         self.updater.start_polling()
 
     def send_message(self, bot, update):
-        answer = self.responce_handler(self.project_id, update.message.text, tg_session_id=update.message.chat_id)
+        answer = self.responce_handler(self.project_id, update.message.chat_id, update.message.text, 'tg-')
         if answer:
             update.message.reply_text(answer)
 
 
-def initialize_logger():
-    handler = NotificationLogHandler(os.getenv('TG_LOG_TOKEN'), os.getenv('TG_CHAT_ID'))
-    formatter = logging.Formatter('%(message)s')
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
-    logger.setLevel(logging.DEBUG)
-
-
 def main():
     load_dotenv()
-    initialize_logger()
+    logger_tools.initialize_logger(
+        logger,
+        os.getenv('TG_LOG_TOKEN'),
+        os.getenv('TG_CHAT_ID')
+    )
     logger.info('telegram bot launched')
     try:
         bot = TgDialogBot(
@@ -67,7 +49,7 @@ def main():
         requests.exceptions.HTTPError,
         KeyError, TypeError, ValueError
     ) as error:
-        logger.error(f'{error}', exc_info=True)
+        logger.exception(f'{error}')
 
 
 if __name__ == "__main__":
